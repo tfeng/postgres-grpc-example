@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package models;
+
+import "google/api/annotations.proto";
+
+message User {
+    int64 id = 1;
+    string name = 2;
+    string hashedPassword = 3;
+    string role = 4;
+}
+
+message CreateRequest {
+    string name = 1;
+    string password = 2;
+    string role = 3;
+}
+
+message CreateResponse {
+    int64 id = 1;
+}
+
+message GetRequest {
+}
+
+message LoginRequest {
+    int64 id = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+}
+
+service UserService {
+    rpc Create(CreateRequest) returns (CreateResponse) {
+        option (google.api.http) = {
+            post: "/v1/user/create"
+            body: "*"
+        };
+    }
+
+    rpc Get(GetRequest) returns (User) {
+        option (google.api.http) = {
+            get: "/v1/user/get"
+        };
+    }
+
+    rpc Login(LoginRequest) returns (LoginResponse) {
+        option (google.api.http) = {
+            post: "/v1/user/login"
+            body: "*"
+        };
+    }
+};

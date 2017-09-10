@@ -1,10 +1,11 @@
-PROTO_FILES = datamodel/user.proto
+PROTO_FILES = models/user.proto
 PROTO_OBJECTS = $(PROTO_FILES:%.proto=%.pb.go) $(PROTO_FILES:%.proto=%.pb.gw.go)
 
 all: install
 
 install: \
 	$(PROTO_OBJECTS) \
+	$(GOPATH)/bin/pg_client \
 	$(GOPATH)/bin/pg_gateway \
 	$(GOPATH)/bin/pg_server
 
@@ -22,6 +23,9 @@ install: \
 	  --grpc-gateway_out=logtostderr=true:. \
 	  $<
 
+$(GOPATH)/bin/pg_client: pg_client/*.go $(PROTO_OBJECTS)
+	go install github.com/tfeng/postgres-grpc-example/pg_client
+
 $(GOPATH)/bin/pg_gateway: pg_gateway/*.go $(PROTO_OBJECTS)
 	go install github.com/tfeng/postgres-grpc-example/pg_gateway
 
@@ -31,4 +35,4 @@ $(GOPATH)/bin/pg_server: pg_server/*.go $(PROTO_OBJECTS)
 clean: uninstall
 
 uninstall:
-	rm -f $(PROTO_OBJECTS) $(GOPATH)/bin/pg_gateway $(GOPATH)/bin/pg_server
+	rm -f $(PROTO_OBJECTS) $(GOPATH)/bin/pg_client $(GOPATH)/bin/pg_gateway $(GOPATH)/bin/pg_server

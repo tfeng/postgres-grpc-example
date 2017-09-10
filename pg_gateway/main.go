@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	. "github.com/tfeng/postgres-grpc-example/datamodel"
+	"github.com/tfeng/postgres-grpc-example/models"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
@@ -16,7 +16,7 @@ func runGateway() error {
 
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := RegisterUserServiceHandlerFromEndpoint(ctx, mux, "localhost:9090", opts)
+	err := models.RegisterUserServiceHandlerFromEndpoint(ctx, mux, "localhost:9090", opts)
 	if err != nil {
 		return err
 	}
