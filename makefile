@@ -1,5 +1,5 @@
 PROTO_FILES = models/user.proto
-PROTO_OBJECTS = $(PROTO_FILES:%.proto=%.pb.go) $(PROTO_FILES:%.proto=%.pb.gw.go)
+PROTO_OBJECTS = $(PROTO_FILES:%.proto=%.pb.go) $(PROTO_FILES:%.proto=%.pb.gw.go) $(PROTO_FILES:%.proto=%.validator.pb.go)
 
 all: install
 
@@ -20,7 +20,14 @@ install: \
 	protoc -I$(GOPATH)/src \
 	  -I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
 	  --proto_path=. \
-	  --grpc-gateway_out=logtostderr=true:. \
+	  --grpc-gateway_out=. \
+	  $<
+
+%.validator.pb.go: %.proto
+	protoc -I$(GOPATH)/src \
+	  -I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+	  --proto_path=. \
+	  --govalidators_out=. \
 	  $<
 
 $(GOPATH)/bin/pg_client: pg_client/*.go $(PROTO_OBJECTS)
