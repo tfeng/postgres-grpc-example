@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+
+package auth;
+
+extend google.protobuf.MethodOptions {
+    AuthChecker checker = 51234;
+}
+
+message AuthChecker {
+
+    bool authenticated = 1;
+
+    bool isAdmin = 2;
+}

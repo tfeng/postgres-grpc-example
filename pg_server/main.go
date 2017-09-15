@@ -3,14 +3,15 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pg/pg"
+	"github.com/golang/glog"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
+	"github.com/tfeng/postgres-grpc-example/auth"
 	"github.com/tfeng/postgres-grpc-example/models"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -18,10 +19,27 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"net"
+	"net/http"
 	"time"
 )
 
-func auth(ctx context.Context) (context.Context, error) {
+func connect() *pg.DB {
+	return pg.Connect(&pg.Options{
+		Addr:     "localhost:5432",
+		User:     "postgres",
+		Password: "password",
+	})
+}
+
+func createTable() error {
+	return db.CreateTable(&models.User{}, nil)
+}
+
+func dropTable() error {
+	return db.DropTable(&models.User{}, nil)
+}
+
+func extractClaims(ctx context.Context) (context.Context, error) {
 	if tokenString, err := grpc_auth.AuthFromMD(ctx, "bearer"); err != nil {
 		return ctx, nil
 	} else {
@@ -39,22 +57,6 @@ func auth(ctx context.Context) (context.Context, error) {
 			}
 		}
 	}
-}
-
-func connect() *pg.DB {
-	return pg.Connect(&pg.Options{
-		Addr:     "localhost:5432",
-		User:     "postgres",
-		Password: "password",
-	})
-}
-
-func createTable() error {
-	return db.CreateTable(&models.User{}, nil)
-}
-
-func dropTable() error {
-	return db.DropTable(&models.User{}, nil)
 }
 
 func generateKey() *rsa.PrivateKey {
@@ -94,28 +96,24 @@ func initialize() {
 	}
 }
 
-func startService() error {
-	listener, err := net.Listen("tcp", "localhost:9090")
-	if err != nil {
-		logger.Fatal("Unable to start service", zap.Error(err))
-		return err
-	}
-
+func createGrpcService() *grpc.Server {
 	s := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_auth.StreamServerInterceptor(auth),
+			grpc_auth.StreamServerInterceptor(extractClaims),
 			grpc_validator.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(logger))),
+			grpc_zap.StreamServerInterceptor(logger),
+			auth.StreamServerInterceptor())),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_auth.UnaryServerInterceptor(auth),
+			grpc_auth.UnaryServerInterceptor(extractClaims),
 			grpc_validator.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(logger))))
+			grpc_zap.UnaryServerInterceptor(logger),
+			auth.UnaryServerInterceptor())))
 	models.RegisterUserServiceServer(s, &UserService{})
 
 	reflection.Register(s)
-	return s.Serve(listener)
+	return s
 }
 
 type UserService struct{}
@@ -137,19 +135,15 @@ func (userService *UserService) Create(ctx context.Context, request *models.Crea
 }
 
 func (userService *UserService) Get(ctx context.Context, request *models.GetRequest) (*models.User, error) {
-	if claims, ok := ctx.Value("claims").(jwt.Claims); !ok {
-		logger.Error("User is not authorized")
-		return nil, errors.New("not authorized")
+	claims, _ := ctx.Value("claims").(jwt.Claims)
+	mapClaims := claims.(jwt.MapClaims)
+	user := models.User{Id: int64(mapClaims["id"].(float64))}
+	if err := db.Select(&user); err != nil {
+		logger.Error("Unable to find user", zap.Error(err))
+		return nil, err
 	} else {
-		mapClaims := claims.(jwt.MapClaims)
-		user := models.User{Id: int64(mapClaims["id"].(float64))}
-		if err := db.Select(&user); err != nil {
-			logger.Error("Unable to find user", zap.Error(err))
-			return nil, err
-		} else {
-			user.HashedPassword = ""
-			return &user, nil
-		}
+		user.HashedPassword = ""
+		return &user, nil
 	}
 }
 
@@ -180,5 +174,29 @@ var (
 
 func main() {
 	initialize()
-	startService()
+	s := createGrpcService()
+
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	r, err := models.CreateUserServiceRouter(ctx, &UserService{},
+		grpc_middleware.ChainUnaryServer(
+			grpc_ctxtags.UnaryServerInterceptor(),
+			grpc_auth.UnaryServerInterceptor(extractClaims),
+			grpc_validator.UnaryServerInterceptor(),
+			grpc_zap.UnaryServerInterceptor(logger),
+			auth.UnaryServerInterceptor()),
+		s)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	listener, err := net.Listen("tcp", "localhost:9090")
+	if err != nil {
+		logger.Fatal("Unable to start service", zap.Error(err))
+		return
+	}
+	go s.Serve(listener)
+
+	http.ListenAndServe(":8080", r)
 }

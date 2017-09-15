@@ -3,6 +3,7 @@ syntax = "proto3";
 package models;
 
 import "github.com/mwitkow/go-proto-validators/validator.proto";
+import "github.com/tfeng/postgres-grpc-example/auth/auth.proto";
 import "google/api/annotations.proto";
 
 message User {
@@ -45,6 +46,9 @@ service UserService {
     rpc Get(GetRequest) returns (User) {
         option (google.api.http) = {
             get: "/v1/user/get"
+        };
+        option (auth.checker) = {
+            authenticated: true
         };
     }
 
