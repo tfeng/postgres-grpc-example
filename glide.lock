@@ -1,0 +1,111 @@
+hash: 01f099a1a90db4d4d2a017d92c6b8fceeee79cb4e18668aa89e50c592b1845f2
+updated: 2017-09-15T20:32:03.174782326-07:00
+imports:
+- name: github.com/dgrijalva/jwt-go
+  version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
+- name: github.com/go-pg/pg
+  version: 43bc4a3a83864abe5cbf4cc1180188eaf68a3cf5
+  subpackages:
+  - internal
+  - internal/parser
+  - internal/pool
+  - orm
+  - types
+- name: github.com/gogo/protobuf
+  version: 2adc21fd136931e0388e278825291678e1d98309
+  subpackages:
+  - proto
+  - protoc-gen-gogo/descriptor
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/golang/protobuf
+  version: 11b8df160996e00fd4b55cbaafb3d84ec6d50fa8
+  subpackages:
+  - jsonpb
+  - proto
+  - protoc-gen-go/descriptor
+  - protoc-gen-go/generator
+  - protoc-gen-go/plugin
+  - ptypes
+  - ptypes/any
+  - ptypes/duration
+  - ptypes/struct
+  - ptypes/timestamp
+- name: github.com/gorilla/context
+  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+- name: github.com/gorilla/mux
+  version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
+- name: github.com/grpc-ecosystem/go-grpc-middleware
+  version: 645b33ed7ba8739747bf2df55d0349d4bba2e7f6
+  subpackages:
+  - auth
+  - logging
+  - logging/zap
+  - tags
+  - util/metautils
+  - validator
+- name: github.com/grpc-ecosystem/grpc-gateway
+  version: 589b126116b5fc961939b3e156c29e4d9d58222f
+- name: github.com/jinzhu/inflection
+  version: 1c35d901db3da928c72a72d8458480cc9ade058f
+- name: github.com/mwitkow/go-proto-validators
+  version: a55ca57f374a8846924b030f534d8b8211508cf0
+- name: go.uber.org/atomic
+  version: 4e336646b2ef9fc6e47be8e21594178f98e5ebcf
+- name: go.uber.org/multierr
+  version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
+- name: go.uber.org/zap
+  version: 3216c4c73e8ebbafff73c456dd27143f4a7c1f94
+  subpackages:
+  - buffer
+  - internal/bufferpool
+  - internal/color
+  - internal/exit
+  - zapcore
+- name: golang.org/x/crypto
+  version: b0c9c05bfe149df95eb1d25642162cca051e0466
+  subpackages:
+  - bcrypt
+  - blowfish
+- name: golang.org/x/net
+  version: 8351a756f30f1297fe94bbf4b767ec589c6ea6d0
+  subpackages:
+  - context
+  - http2
+  - http2/hpack
+  - idna
+  - internal/timeseries
+  - lex/httplex
+  - trace
+- name: golang.org/x/text
+  version: 1cbadb444a806fd9430d14ad08967ed91da4fa0a
+  subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+- name: google.golang.org/genproto
+  version: 595979c8a7bf586b2d293fb42246bf91a0b893d9
+  subpackages:
+  - googleapis/api/annotations
+  - googleapis/rpc/status
+- name: google.golang.org/grpc
+  version: f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3
+  subpackages:
+  - codes
+  - connectivity
+  - credentials
+  - grpclb/grpc_lb_v1/messages
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - reflection
+  - reflection/grpc_reflection_v1alpha
+  - stats
+  - status
+  - tap
+  - transport
+testImports: []

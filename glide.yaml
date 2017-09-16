@@ -1,0 +1,40 @@
+package: github.com/tfeng/postgres-grpc-example
+import:
+- package: github.com/dgrijalva/jwt-go
+  version: ^3.0.0
+- package: github.com/go-pg/pg
+  version: ^6.5.1
+- package: github.com/golang/glog
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+  - protoc-gen-go/descriptor
+  - protoc-gen-go/generator
+  - protoc-gen-go/plugin
+- package: github.com/grpc-ecosystem/go-grpc-middleware
+  subpackages:
+  - auth
+  - logging/zap
+  - tags
+  - validator
+- package: go.uber.org/zap
+  version: ^1.6.0
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/genproto
+  subpackages:
+  - googleapis/api/annotations
+- package: google.golang.org/grpc
+  version: ^1.6.0
+  subpackages:
+  - metadata
+  - reflection
+- package: github.com/grpc-ecosystem/grpc-gateway
+  version: ^1.2.2
+- package: github.com/mwitkow/go-proto-validators
+- package: github.com/gorilla/mux
+  version: ^1.5.0

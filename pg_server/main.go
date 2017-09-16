@@ -20,12 +20,17 @@ import (
 	"google.golang.org/grpc/reflection"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
 func connect() *pg.DB {
+	var addr = os.Getenv("POSTGRESQL_ADDRESS")
+	if addr == "" {
+		addr = "127.0.0.1:5432"
+	}
 	return pg.Connect(&pg.Options{
-		Addr:     "localhost:5432",
+		Addr:     addr,
 		User:     "postgres",
 		Password: "password",
 	})
@@ -191,7 +196,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	listener, err := net.Listen("tcp", "localhost:9090")
+	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		logger.Fatal("Unable to start service", zap.Error(err))
 		return
