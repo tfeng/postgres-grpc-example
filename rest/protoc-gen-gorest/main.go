@@ -22,38 +22,17 @@ var restTemplate = template.Must(template.New("rest").Parse(`
 package {{.Pkg}}
 
 import (
-	"encoding/json"
-	"github.com/golang/glog"
 	"github.com/gorilla/mux"
+	"github.com/tfeng/postgres-grpc-example/rest"
 	"golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	"net/http"
-	"strings"
 )
 
 var (
-	_ json.Token
-	_ glog.Level
-	_ mux.Route
-	_ grpc.Server
+	_ = rest.HandleRequest
+	_ http.Server
 )
-
-func extractHeaders(ctx context.Context, req *http.Request) context.Context {
-	var pairs []string
-	for key, vals := range req.Header {
-		for _, val := range vals {
-			if strings.ToLower(key) == "authorization" {
-				pairs = append(pairs, "authorization", val)
-			}
-		}
-	}
-	if len(pairs) == 0 {
-		return ctx
-	}
-	md := metadata.Pairs(pairs...)
-	return metadata.NewIncomingContext(ctx, md)
-}
 
 {{range $svc := .Services}}
 func Create{{$svc.Service.GetName}}Router(ctx context.Context, impl {{$svc.Service.GetName}}Server, interceptor grpc.UnaryServerInterceptor, s *grpc.Server) (*mux.Router, error) {
@@ -61,55 +40,13 @@ func Create{{$svc.Service.GetName}}Router(ctx context.Context, impl {{$svc.Servi
 	{{range $m := $svc.Methods}}
 	{{range $o := $m.HttpOpts}}
 	r.HandleFunc({{$o.PathTemplate | printf "%q"}}, func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		if cn, ok := w.(http.CloseNotifier); ok {
-			go func(done <-chan struct{}, closed <-chan bool) {
-				select {
-				case <-done:
-				case <-closed:
-					cancel()
-				}
-			}(ctx.Done(), cn.CloseNotify())
-		}
+		rest.HandleRequest(ctx, interceptor, s, w, r, &{{$m.InputType}}{}, func(ctx context.Context, req interface{}) (interface{}, error) {
+			return impl.{{$m.Method.GetName}}(ctx, req.(*{{$m.InputType}}))
+		})
+	}).Methods({{$o.HttpMethod | printf "%q"}}).Headers("content-type", "application/json")
 
-		ctx = extractHeaders(ctx, r)
-
-		var req {{$m.InputType}}
-		json.NewDecoder(r.Body).Decode(&req)
-		var resp *{{$m.OutputType}}
-		var err error
-		if interceptor == nil {
-			resp, err = impl.{{$m.Method.GetName}}(ctx, &req)
-		} else {
-			handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-				mi := req.(*{{$m.InputType}})
-				r, err := impl.{{$m.Method.GetName}}(ctx, mi)
-				return *r, err
-			}
-			if r, err := interceptor(ctx, &req, &grpc.UnaryServerInfo{Server: s, FullMethod: {{$m.Method.GetName | printf "%q"}}}, handler); err != nil {
-				glog.Error(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			} else {
-				mo := r.({{$m.OutputType}})
-				resp = &mo
-			}
-		}
-		if err != nil {
-			glog.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		} else if buf, err := json.Marshal(resp); err != nil {
-			glog.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		} else {
-			w.WriteHeader(http.StatusOK)
-			if _, err := w.Write(buf); err != nil {
-				glog.Error(err)
-			}
-		}
+	r.HandleFunc({{$o.PathTemplate | printf "%q"}}, func(w http.ResponseWriter, r *http.Request) {
+		rest.HandleWrongContentType(ctx, w, r)
 	}).Methods({{$o.HttpMethod | printf "%q"}})
 	{{end}}
 	{{end}}

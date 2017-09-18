@@ -38,14 +38,14 @@ message LoginResponse {
 service UserService {
     rpc Create(CreateRequest) returns (CreateResponse) {
         option (google.api.http) = {
-            post: "/v1/user/create"
+            post: "/v1/users/create"
             body: "*"
         };
     }
 
     rpc Get(GetRequest) returns (User) {
         option (google.api.http) = {
-            get: "/v1/user/get"
+            get: "/v1/users/get"
         };
         option (auth.checker) = {
             authenticated: true
@@ -54,7 +54,7 @@ service UserService {
 
     rpc Login(LoginRequest) returns (LoginResponse) {
         option (google.api.http) = {
-            post: "/v1/user/login"
+            post: "/v1/users/login"
             body: "*"
         };
     }

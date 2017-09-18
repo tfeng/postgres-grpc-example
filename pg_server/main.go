@@ -3,21 +3,24 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"flag"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pg/pg"
-	"github.com/golang/glog"
+	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/tfeng/postgres-grpc-example/auth"
+	"github.com/tfeng/postgres-grpc-example/config"
 	"github.com/tfeng/postgres-grpc-example/models"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	math_rand "math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -47,20 +50,16 @@ func dropTable() error {
 func extractClaims(ctx context.Context) (context.Context, error) {
 	if tokenString, err := grpc_auth.AuthFromMD(ctx, "bearer"); err != nil {
 		return ctx, nil
+	} else if token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return privateKey.Public(), nil
+	}); err != nil {
+		logger.Error("Unable to parse token", zap.Error(err))
+		return ctx, err
+	} else if err := token.Claims.Valid(); err != nil {
+		logger.Error("Invalid token", zap.Error(err))
+		return ctx, err
 	} else {
-		if token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return secretKey.Public(), nil
-		}); err != nil {
-			logger.Error("Unable to parse token", zap.Error(err))
-			return ctx, err
-		} else {
-			if err := token.Claims.Valid(); err != nil {
-				logger.Error("Invalid token", zap.Error(err))
-				return ctx, err
-			} else {
-				return context.WithValue(ctx, "claims", token.Claims), nil
-			}
-		}
+		return context.WithValue(ctx, "claims", token.Claims), nil
 	}
 }
 
@@ -83,7 +82,7 @@ func generateToken(user models.User) (string, error) {
 		"exp":  now.Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString(privateKey)
 	if err != nil {
 		return "", err
 	}
@@ -91,6 +90,10 @@ func generateToken(user models.User) (string, error) {
 }
 
 func initialize() {
+	flag.Parse()
+
+	math_rand.Seed(time.Now().UTC().UnixNano())
+
 	if err := dropTable(); err != nil {
 		logger.Info("Unable to drop table", zap.Error(err))
 	}
@@ -102,21 +105,9 @@ func initialize() {
 }
 
 func createGrpcService() *grpc.Server {
-	s := grpc.NewServer(
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_auth.StreamServerInterceptor(extractClaims),
-			grpc_validator.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(logger),
-			auth.StreamServerInterceptor())),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_auth.UnaryServerInterceptor(extractClaims),
-			grpc_validator.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(logger),
-			auth.UnaryServerInterceptor())))
+	s := grpc.NewServer(grpc.StreamInterceptor(streamInterceptor), grpc.UnaryInterceptor(unaryInterceptor))
 	models.RegisterUserServiceServer(s, &UserService{})
-
+	auth.RegisterAuthServiceServer(s, &auth.AuthService{})
 	reflection.Register(s)
 	return s
 }
@@ -172,30 +163,27 @@ func (userService *UserService) Login(ctx context.Context, request *models.Login
 }
 
 var (
-	db        = connect()
-	logger, _ = zap.NewDevelopment()
-	secretKey = generateKey()
+	db                = connect()
+	logger            = config.Logger
+	privateKey        = generateKey()
+	streamInterceptor = grpc_middleware.ChainStreamServer(
+		grpc_ctxtags.StreamServerInterceptor(),
+		grpc_auth.StreamServerInterceptor(extractClaims),
+		grpc_validator.StreamServerInterceptor(),
+		grpc_zap.StreamServerInterceptor(logger),
+		auth.StreamServerInterceptor())
+	unaryInterceptor = grpc_middleware.ChainUnaryServer(
+		grpc_ctxtags.UnaryServerInterceptor(),
+		grpc_auth.UnaryServerInterceptor(extractClaims),
+		grpc_validator.UnaryServerInterceptor(),
+		grpc_zap.UnaryServerInterceptor(logger),
+		auth.UnaryServerInterceptor())
 )
 
 func main() {
 	initialize()
+
 	s := createGrpcService()
-
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	r, err := models.CreateUserServiceRouter(ctx, &UserService{},
-		grpc_middleware.ChainUnaryServer(
-			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_auth.UnaryServerInterceptor(extractClaims),
-			grpc_validator.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(logger),
-			auth.UnaryServerInterceptor()),
-		s)
-	if err != nil {
-		glog.Fatal(err)
-	}
-
 	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		logger.Fatal("Unable to start service", zap.Error(err))
@@ -203,5 +191,18 @@ func main() {
 	}
 	go s.Serve(listener)
 
-	http.ListenAndServe(":8080", r)
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	r := mux.NewRouter()
+	if ar, err := auth.CreateAuthServiceRouter(ctx, &auth.AuthService{}, unaryInterceptor, s); err != nil {
+		logger.Fatal("Unable to create auth router", zap.Error(err))
+	} else if ur, err := models.CreateUserServiceRouter(ctx, &UserService{}, unaryInterceptor, s); err != nil {
+		logger.Fatal("Unable to create user router", zap.Error(err))
+	} else {
+		r.Handle("/oauth/{_dummy:.*}", ar)
+		r.Handle("/v1/users/{_dummy:.*}", ur)
+		http.ListenAndServe(":8080", r)
+	}
 }

@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "google/api/annotations.proto";
 import "google/protobuf/descriptor.proto";
 
 package auth;
@@ -9,8 +10,42 @@ extend google.protobuf.MethodOptions {
 }
 
 message AuthChecker {
-
     bool authenticated = 1;
-
     bool isAdmin = 2;
+}
+
+enum Scope {
+    public = 0;
+    profile = 1;
+}
+
+message CreateTokenRequest {
+    string grant_type = 3;
+
+    /* Case client_credentials grant type */
+    string client_id = 1;
+    string client_secret = 2;
+    string scope = 4;         // A space-separated list of scopes
+
+    /* Case authorization_code grant type */
+    string code = 5;
+}
+
+message CreateTokenResponse {
+    enum TokenType {
+        Bearer = 0;
+    }
+    TokenType token_type = 1; // Always "Bearer"
+    string access_token = 2;  // A URL-encoded token
+    int32 expires_in = 3;     // Expiration in seconds
+    string scope = 4;         // A space-separated list of scopes
+}
+
+service AuthService {
+    rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {
+        option (google.api.http) = {
+            post: "/oauth/token"
+            body: "*"
+        };
+    }
 }

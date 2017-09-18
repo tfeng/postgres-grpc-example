@@ -30,13 +30,13 @@ $ pg_server
 ### Add a user
 
 ```$bash
-$ curl -X POST -d '{"name": "Thomas", "password": "password", "role": "admin"}' localhost:8080/v1/user/create
+$ curl -X POST -H 'Content-Type: application/json' -d '{"name": "Thomas", "password": "password", "role": "admin"}' localhost:8080/v1/users/create
 ```
 
 ### Login
 
 ```$bash
-$ TOKEN=$(curl -X POST -d '{"id": 1, "password": "password"}' localhost:8080/v1/user/login | jq -r '.token')
+$ TOKEN=$(curl -X POST -H 'Content-Type: application/json' -d '{"id": 1, "password": "password"}' localhost:8080/v1/users/login | jq -r '.token')
 ```
 
 The returned JSON contains only a [JWT](https://jwt.io/) token. It has information of the logged in user, encrypted by a
@@ -45,7 +45,7 @@ random RSA key with the [crypto](https://github.com/golang/crypto) package.
 ### Get the current user
 
 ```$bash
-$ curl -H "authorization: bearer $TOKEN" localhost:8080/v1/user/get
+$ curl -H 'Content-Type: application/json' -H "authorization: bearer $TOKEN" localhost:8080/v1/users/get
 ```
 
 The token obtained in the previous step is passed to the server with the HTTP "authorization" header. Because the token

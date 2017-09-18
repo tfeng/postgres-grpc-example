@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type authorizable interface {
@@ -40,5 +44,28 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			}
 		}
 		return handler(ctx, req)
+	}
+}
+
+func GenerateToken() (string, error) {
+	b := make([]byte, 132)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+type AuthService struct{}
+
+var grantTypeHandlers = map[string]grantTypeHandler{
+	"client_credentials": &clientCredentialsGrantTypeHandler{},
+}
+
+func (c *AuthService) CreateToken(ctx context.Context, r *CreateTokenRequest) (*CreateTokenResponse, error) {
+	if handler, ok := grantTypeHandlers[r.GrantType]; ok {
+		return handler.CreateToken(ctx, r)
+	} else {
+		return nil, status.Error(codes.InvalidArgument, "Unknown grant type")
 	}
 }

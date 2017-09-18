@@ -1,4 +1,4 @@
-PROTO_OBJECTS = auth/auth.pb.go models/user.auth.pb.go models/user.pb.go models/user.rest.pb.go models/user.validator.pb.go
+PROTO_OBJECTS = auth/auth.pb.go auth/auth.rest.pb.go models/user.auth.pb.go models/user.pb.go models/user.rest.pb.go models/user.validator.pb.go
 PROTOC_INCLUDES = -Ivendor -Ivendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis -I$(GOPATH)/src
 
 all: install
@@ -31,7 +31,7 @@ $(GOPATH)/bin/protoc-gen-gorest: rest/protoc-gen-gorest/*.go
 $(GOPATH)/bin/pg_client: pg_client/*.go $(PROTO_OBJECTS)
 	go install github.com/tfeng/postgres-grpc-example/pg_client
 
-$(GOPATH)/bin/pg_server: pg_server/*.go auth/auth.go $(PROTO_OBJECTS)
+$(GOPATH)/bin/pg_server: pg_server/*.go auth/*.go rest/*.go $(PROTO_OBJECTS)
 	go install github.com/tfeng/postgres-grpc-example/pg_server
 
 clean: uninstall
