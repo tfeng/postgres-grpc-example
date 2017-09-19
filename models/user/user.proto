@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package models;
+package user;
 
 import "github.com/mwitkow/go-proto-validators/validator.proto";
 import "github.com/tfeng/postgres-grpc-example/auth/auth.proto";
@@ -15,7 +15,7 @@ message User {
 
 message CreateRequest {
     string name = 1;
-    string password = 2;
+    string password = 2 [(validator.field) = {length_gt: 6}];
     string role = 3;
 }
 

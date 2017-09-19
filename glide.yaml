@@ -38,3 +38,4 @@ import:
 - package: github.com/mwitkow/go-proto-validators
 - package: github.com/gorilla/mux
   version: ^1.5.0
+- package: golang.org/x/text

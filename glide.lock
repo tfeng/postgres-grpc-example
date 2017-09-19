@@ -1,5 +1,5 @@
-hash: 01f099a1a90db4d4d2a017d92c6b8fceeee79cb4e18668aa89e50c592b1845f2
-updated: 2017-09-16T02:03:52.16459274-07:00
+hash: bba52ea7c8b6d37cd53be6705a05abb2ef181d84b3468cb700c58ca3f8b677d0
+updated: 2017-09-19T00:14:57.28031313-07:00
 imports:
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
@@ -12,7 +12,7 @@ imports:
   - orm
   - types
 - name: github.com/gogo/protobuf
-  version: 2adc21fd136931e0388e278825291678e1d98309
+  version: 100ba4e885062801d56799d78530b73b178a78f3
   subpackages:
   - proto
   - protoc-gen-gogo/descriptor
@@ -46,6 +46,10 @@ imports:
   - validator
 - name: github.com/grpc-ecosystem/grpc-gateway
   version: 589b126116b5fc961939b3e156c29e4d9d58222f
+  subpackages:
+  - runtime
+  - runtime/internal
+  - utilities
 - name: github.com/jinzhu/inflection
   version: 1c35d901db3da928c72a72d8458480cc9ade058f
 - name: github.com/mwitkow/go-proto-validators

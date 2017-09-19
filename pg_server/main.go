@@ -1,11 +1,8 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"flag"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/go-pg/pg"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -14,37 +11,23 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/tfeng/postgres-grpc-example/auth"
 	"github.com/tfeng/postgres-grpc-example/config"
-	"github.com/tfeng/postgres-grpc-example/models"
+	"github.com/tfeng/postgres-grpc-example/models/user"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	math_rand "math/rand"
 	"net"
 	"net/http"
-	"os"
 	"time"
 )
 
-func connect() *pg.DB {
-	var addr = os.Getenv("POSTGRESQL_ADDRESS")
-	if addr == "" {
-		addr = "127.0.0.1:5432"
-	}
-	return pg.Connect(&pg.Options{
-		Addr:     addr,
-		User:     "postgres",
-		Password: "password",
-	})
-}
-
 func createTable() error {
-	return db.CreateTable(&models.User{}, nil)
+	return db.CreateTable(&user.User{}, nil)
 }
 
 func dropTable() error {
-	return db.DropTable(&models.User{}, nil)
+	return db.DropTable(&user.User{}, nil)
 }
 
 func extractClaims(ctx context.Context) (context.Context, error) {
@@ -61,32 +44,6 @@ func extractClaims(ctx context.Context) (context.Context, error) {
 	} else {
 		return context.WithValue(ctx, "claims", token.Claims), nil
 	}
-}
-
-func generateKey() *rsa.PrivateKey {
-	if key, err := rsa.GenerateKey(rand.Reader, 1024); err != nil {
-		logger.Fatal("Unable to generate RSA key", zap.Error(err))
-		return nil
-	} else {
-		return key
-	}
-}
-
-func generateToken(user models.User) (string, error) {
-	now := jwt.TimeFunc()
-	claims := jwt.MapClaims{
-		"id":   user.Id,
-		"name": user.Name,
-		"role": user.Role,
-		"iat":  now.Unix(),
-		"exp":  now.Add(time.Hour * 24).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	tokenString, err := token.SignedString(privateKey)
-	if err != nil {
-		return "", err
-	}
-	return tokenString, nil
 }
 
 func initialize() {
@@ -106,66 +63,16 @@ func initialize() {
 
 func createGrpcService() *grpc.Server {
 	s := grpc.NewServer(grpc.StreamInterceptor(streamInterceptor), grpc.UnaryInterceptor(unaryInterceptor))
-	models.RegisterUserServiceServer(s, &UserService{})
+	user.RegisterUserServiceServer(s, &user.UserService{})
 	auth.RegisterAuthServiceServer(s, &auth.AuthService{})
 	reflection.Register(s)
 	return s
 }
 
-type UserService struct{}
-
-func (userService *UserService) Create(ctx context.Context, request *models.CreateRequest) (*models.CreateResponse, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Error("Unable to generate hashed password", zap.Error(err))
-		return nil, err
-	}
-
-	user := models.User{Name: request.Name, HashedPassword: string(hashedPassword), Role: request.Role}
-	if err := db.Insert(&user); err != nil {
-		logger.Error("Unable to insert user", zap.Error(err))
-		return nil, err
-	} else {
-		return &models.CreateResponse{user.Id}, nil
-	}
-}
-
-func (userService *UserService) Get(ctx context.Context, request *models.GetRequest) (*models.User, error) {
-	claims, _ := ctx.Value("claims").(jwt.Claims)
-	mapClaims := claims.(jwt.MapClaims)
-	user := models.User{Id: int64(mapClaims["id"].(float64))}
-	if err := db.Select(&user); err != nil {
-		logger.Error("Unable to find user", zap.Error(err))
-		return nil, err
-	} else {
-		user.HashedPassword = ""
-		return &user, nil
-	}
-}
-
-func (userService *UserService) Login(ctx context.Context, request *models.LoginRequest) (*models.LoginResponse, error) {
-	user := models.User{Id: request.Id}
-	if err := db.Select(&user); err != nil {
-		logger.Error("Unable to find user", zap.Error(err))
-		return nil, err
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(request.Password)); err != nil {
-		logger.Error("Wrong password", zap.Error(err))
-		return nil, err
-	}
-
-	if tokenString, err := generateToken(user); err != nil {
-		logger.Error("Unable to generate token", zap.Error(err))
-		return nil, err
-	} else {
-		return &models.LoginResponse{Token: tokenString}, nil
-	}
-}
-
 var (
-	db                = connect()
+	db                = config.Db
 	logger            = config.Logger
-	privateKey        = generateKey()
+	privateKey        = config.PrivateKey
 	streamInterceptor = grpc_middleware.ChainStreamServer(
 		grpc_ctxtags.StreamServerInterceptor(),
 		grpc_auth.StreamServerInterceptor(extractClaims),
@@ -198,7 +105,7 @@ func main() {
 	r := mux.NewRouter()
 	if ar, err := auth.CreateAuthServiceRouter(ctx, &auth.AuthService{}, unaryInterceptor, s); err != nil {
 		logger.Fatal("Unable to create auth router", zap.Error(err))
-	} else if ur, err := models.CreateUserServiceRouter(ctx, &UserService{}, unaryInterceptor, s); err != nil {
+	} else if ur, err := user.CreateUserServiceRouter(ctx, &user.UserService{}, unaryInterceptor, s); err != nil {
 		logger.Fatal("Unable to create user router", zap.Error(err))
 	} else {
 		r.Handle("/oauth/{_dummy:.*}", ar)

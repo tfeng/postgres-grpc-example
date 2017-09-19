@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 import "google/protobuf/descriptor.proto";
+import "ptypes/timestamp/timestamp.proto";
 
 package auth;
 
@@ -19,6 +20,21 @@ enum Scope {
     profile = 1;
 }
 
+enum TokenType {
+    client_credentials = 0;
+    access_token = 1;
+    refresh_token = 2;
+}
+
+message AuthToken {
+    TokenType type = 1;
+    string value = 2;
+    string refreshToken = 3;
+    repeated string scope = 4;
+    google.protobuf.Timestamp creation = 5;
+    google.protobuf.Timestamp expiration = 6;
+}
+
 message CreateTokenRequest {
     string grant_type = 3;
 
@@ -32,10 +48,7 @@ message CreateTokenRequest {
 }
 
 message CreateTokenResponse {
-    enum TokenType {
-        Bearer = 0;
-    }
-    TokenType token_type = 1; // Always "Bearer"
+    string token_type = 1;    // Always "bearer"
     string access_token = 2;  // A URL-encoded token
     int32 expires_in = 3;     // Expiration in seconds
     string scope = 4;         // A space-separated list of scopes
@@ -44,7 +57,7 @@ message CreateTokenResponse {
 service AuthService {
     rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {
         option (google.api.http) = {
-            post: "/oauth/token"
+            post: "/oauth/tokens"
             body: "*"
         };
     }

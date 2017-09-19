@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/tfeng/postgres-grpc-example/models"
+	"github.com/tfeng/postgres-grpc-example/models/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"log"
@@ -20,16 +20,16 @@ var (
 	client = connect()
 )
 
-func connect() models.UserServiceClient {
+func connect() user.UserServiceClient {
 	if conn, err := grpc.Dial("localhost:9090", grpc.WithInsecure()); err != nil {
 		panic(err)
 	} else {
-		return models.NewUserServiceClient(conn)
+		return user.NewUserServiceClient(conn)
 	}
 }
 
 func create() int64 {
-	request := models.CreateRequest{Name: name, Password: password, Role: role}
+	request := user.CreateRequest{Name: name, Password: password, Role: role}
 	log.Println("create request", encode(request))
 	if response, err := client.Create(context.Background(), &request); err != nil {
 		panic(err)
@@ -47,10 +47,10 @@ func encode(obj interface{}) string {
 	}
 }
 
-func get(token string) *models.User {
+func get(token string) *user.User {
 	md := metadata.Pairs("authorization", "bearer "+token)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
-	request := models.GetRequest{}
+	request := user.GetRequest{}
 	log.Println("get request", encode(request))
 	if response, err := client.Get(ctx, &request); err != nil {
 		panic(err)
@@ -61,7 +61,7 @@ func get(token string) *models.User {
 }
 
 func login(id int64) string {
-	request := models.LoginRequest{Id: id, Password: password}
+	request := user.LoginRequest{Id: id, Password: password}
 	log.Println("login request", encode(request))
 	if response, err := client.Login(context.Background(), &request); err != nil {
 		panic(err)

@@ -47,7 +47,7 @@ func (h *clientCredentialsGrantTypeHandler) createResponse(scopes []Scope) (*Cre
 		r.Scope = strings.Join(scopeNames, " ")
 		r.AccessToken = token
 		r.ExpiresIn = expiration
-		r.TokenType = CreateTokenResponse_Bearer
+		r.TokenType = "bearer"
 		return &r, nil
 	}
 }
