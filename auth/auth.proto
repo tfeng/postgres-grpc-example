@@ -20,31 +20,32 @@ enum Scope {
     profile = 1;
 }
 
-enum TokenType {
+enum GrantType {
     client_credentials = 0;
-    access_token = 1;
-    refresh_token = 2;
 }
 
 message AuthToken {
-    TokenType type = 1;
-    string value = 2;
-    string refreshToken = 3;
-    repeated string scope = 4;
-    google.protobuf.Timestamp creation = 5;
-    google.protobuf.Timestamp expiration = 6;
+    string clientId = 1;
+    string userId = 2;
+    repeated Scope scope = 3;
+    string access = 4;
+    google.protobuf.Timestamp accessCreationTime = 5;
+    google.protobuf.Timestamp accessExpirationTime = 6;
+    string refresh = 7;
+    google.protobuf.Timestamp refreshCreationTime = 8;
+    google.protobuf.Timestamp refreshExpirationTime = 9;
 }
 
 message CreateTokenRequest {
-    string grant_type = 3;
+    string grant_type = 1;
 
     /* Case client_credentials grant type */
-    string client_id = 1;
-    string client_secret = 2;
-    string scope = 4;         // A space-separated list of scopes
+    string client_id = 2;
+    string client_secret = 3;
 
-    /* Case authorization_code grant type */
-    string code = 5;
+    /* Case password grant type */
+    string username = 4;
+    string password = 5;
 }
 
 message CreateTokenResponse {

@@ -43,4 +43,4 @@ docker-build:
 	docker build --tag=postgres-grpc-example .
 
 docker-run:
-	docker run --rm -v "${CURDIR}":/go/src/github.com/tfeng/postgres-grpc-example -p 8080:8080 -p 9090:9090 -it postgres-grpc-example
+	docker run --privileged --rm -v "${CURDIR}":/go/src/github.com/tfeng/postgres-grpc-example -p 2345:2345 -p 8080:8080 -p 9090:9090 -it postgres-grpc-example

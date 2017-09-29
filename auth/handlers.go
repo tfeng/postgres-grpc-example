@@ -3,18 +3,32 @@ package auth
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strings"
+	"time"
 )
 
-const (
-	clientId     = "client"
-	clientSecret = "password"
-	expiration   = 86400
-)
+type ClientInfo struct {
+	secret     string
+	expiration time.Duration
+	scopes     []Scope
+}
+
+type UserInfo struct {
+	password string
+}
+
+var clients = map[string]ClientInfo{
+	"client": {"password", time.Hour * 24, []Scope{Scope_public, Scope_profile}},
+}
+
+var users = map[string]UserInfo{
+	"tfeng": {"password"},
+}
 
 type grantTypeHandler interface {
 	CreateToken(context.Context, *CreateTokenRequest) (*CreateTokenResponse, error)
@@ -35,21 +49,27 @@ func (h *clientCredentialsGrantTypeHandler) parseBasicAuth(s string) (username, 
 	return cs[:idx], cs[idx+1:], true
 }
 
-func (h *clientCredentialsGrantTypeHandler) createResponse(scopes []Scope) (*CreateTokenResponse, error) {
-	var r CreateTokenResponse
-	if token, err := GenerateToken(); err != nil {
+func (h *clientCredentialsGrantTypeHandler) createResponse(client string) (*CreateTokenResponse, error) {
+	token, err := GenerateToken()
+	if err != nil {
 		return nil, err
-	} else {
-		var scopeNames []string
-		for _, scope := range scopes {
-			scopeNames = append(scopeNames, Scope_name[int32(scope)])
-		}
-		r.Scope = strings.Join(scopeNames, " ")
-		r.AccessToken = token
-		r.ExpiresIn = expiration
-		r.TokenType = "bearer"
-		return &r, nil
 	}
+
+	clientInfo, ok := clients[client]
+	if !ok {
+		return nil, errors.New("Client " + client + " does not exist")
+	}
+
+	var r CreateTokenResponse
+	var scopeNames []string
+	for _, scope := range clientInfo.scopes {
+		scopeNames = append(scopeNames, Scope_name[int32(scope)])
+	}
+	r.Scope = strings.Join(scopeNames, " ")
+	r.AccessToken = token
+	r.ExpiresIn = int32(clientInfo.expiration.Seconds())
+	r.TokenType = "bearer"
+	return &r, nil
 }
 
 func (h *clientCredentialsGrantTypeHandler) parseScopes(s string) ([]Scope, error) {
@@ -81,13 +101,10 @@ func (h *clientCredentialsGrantTypeHandler) CreateToken(ctx context.Context, r *
 		username = r.ClientId
 		password = r.ClientSecret
 	}
-	if username == clientId && password == clientSecret {
-		if scopes, err := h.parseScopes(r.Scope); err != nil {
-			return nil, status.Error(codes.InvalidArgument, "Invalid scope")
-		} else {
-			return h.createResponse(scopes)
-		}
-	} else {
+
+	clientInfo, ok := clients[username]
+	if !ok || password != clientInfo.secret {
 		return nil, status.Error(codes.Unauthenticated, "Incorrect client id or secret")
 	}
+	return h.createResponse(username)
 }

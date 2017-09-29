@@ -1,10 +1,10 @@
 hash: bba52ea7c8b6d37cd53be6705a05abb2ef181d84b3468cb700c58ca3f8b677d0
-updated: 2017-09-19T00:14:57.28031313-07:00
+updated: 2017-09-26T15:37:21.920698639-07:00
 imports:
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
 - name: github.com/go-pg/pg
-  version: 43bc4a3a83864abe5cbf4cc1180188eaf68a3cf5
+  version: 0cd2ff625d4d38126c5b6afb9399a3a436883bd1
   subpackages:
   - internal
   - internal/parser
@@ -59,7 +59,7 @@ imports:
 - name: go.uber.org/multierr
   version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
 - name: go.uber.org/zap
-  version: 3216c4c73e8ebbafff73c456dd27143f4a7c1f94
+  version: 35aad584952c3e7020db7b839f6b102de6271f89
   subpackages:
   - buffer
   - internal/bufferpool
