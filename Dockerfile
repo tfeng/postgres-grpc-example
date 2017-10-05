@@ -21,8 +21,3 @@ RUN \
 WORKDIR /go/src/github.com/tfeng/postgres-grpc-example
 
 SHELL ["/bin/bash", "-i", "-c"]
-
-CMD \
-  if [ ! -d vendor ]; then glide install; fi && \
-  make && \
-  dlv --headless --listen=:2345 --api-version=2 exec /go/bin/pg_server

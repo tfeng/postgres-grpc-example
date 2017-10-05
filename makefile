@@ -46,4 +46,7 @@ docker-build:
 	docker build --tag=postgres-grpc-example .
 
 docker-run:
-	docker run --privileged --rm -v "${CURDIR}":/go/src/github.com/tfeng/postgres-grpc-example -p 2345:2345 -p 8080:8080 -p 9090:9090 -it postgres-grpc-example
+	docker run --privileged --rm -v "${CURDIR}":/go/src/github.com/tfeng/postgres-grpc-example -p 2345:2345 -p 8080:8080 -p 9090:9090 -it postgres-grpc-example bash -i -c "if [ ! -d vendor ]; then glide install; fi && make && /go/bin/pg_server"
+
+docker-debug:
+	docker run --privileged --rm -v "${CURDIR}":/go/src/github.com/tfeng/postgres-grpc-example -p 2345:2345 -p 8080:8080 -p 9090:9090 -it postgres-grpc-example bash -i -c "if [ ! -d vendor ]; then glide install; fi && make && dlv --headless --listen=:2345 --api-version=2 exec /go/bin/pg_server"
