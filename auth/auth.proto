@@ -12,16 +12,18 @@ extend google.protobuf.MethodOptions {
 
 message AuthChecker {
     bool authenticated = 1;
-    bool isAdmin = 2;
+    repeated Scope scope = 2;
 }
 
 enum Scope {
-    public = 0;
-    profile = 1;
+    user_creation = 0;
+    user_authorize = 1;
+    user_profile = 2;
 }
 
 enum GrantType {
     client_credentials = 0;
+    password = 1;
 }
 
 message AuthToken {
@@ -32,8 +34,6 @@ message AuthToken {
     google.protobuf.Timestamp accessCreationTime = 5;
     google.protobuf.Timestamp accessExpirationTime = 6;
     string refresh = 7;
-    google.protobuf.Timestamp refreshCreationTime = 8;
-    google.protobuf.Timestamp refreshExpirationTime = 9;
 }
 
 message CreateTokenRequest {

@@ -22,30 +22,47 @@ var authTemplate = template.Must(template.New("auth").Parse(`
 package {{.Pkg}}
 
 import (
-	"fmt"
-	jwt "github.com/dgrijalva/jwt-go"
+	{{if not .IsSamePackage}}
+	"github.com/tfeng/postgres-grpc-example/auth"
+	{{end}}
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
-	_ fmt.Formatter
-	_ jwt.Token
+	{{if not .IsSamePackage}}
+	_ auth.AuthToken
+	{{end}}
 	_ context.Context
+	_ codes.Code
+	_ status.Status
 )
 
 {{range $svc := .Services}}
 {{range $md := $svc.Methods}}
-{{if $md.AuthChecker.GetAuthenticated}}
+{{if (or ($md.AuthChecker.GetAuthenticated) ($md.AuthChecker.GetScope))}}
 func (r *{{.Request}}) isAuthenticated(ctx context.Context) bool {
-	_, ok := ctx.Value("claims").(jwt.Claims)
+	_, ok := auth.GetAuthToken(ctx)
 	return ok
+}
+{{end}}
+{{if $md.AuthChecker.GetScope}}
+func (r *{{.Request}}) HasScope(ctx context.Context) bool {
+	token, _ := auth.GetAuthToken(ctx)
+	return {{range $s := $md.AuthChecker.GetScope}}auth.HasScope(auth.Scope_{{$s}}, token) && {{end}}true
 }
 {{end}}
 
 func (r *{{.Request}}) Authorize(ctx context.Context) error {
-	{{if $md.AuthChecker.GetAuthenticated}}
+	{{if (or ($md.AuthChecker.GetAuthenticated) ($md.AuthChecker.GetScope))}}
 	if !r.isAuthenticated(ctx) {
-		return fmt.Errorf("not authenticated")
+		return status.Error(codes.Unauthenticated, "Not authenticated")
+	}
+	{{end}}
+	{{if $md.AuthChecker.GetScope}}
+	if !r.HasScope(ctx) {
+		return status.Error(codes.Unauthenticated, "Insufficient scope")
 	}
 	{{end}}
 	return nil
@@ -66,11 +83,28 @@ type Service struct {
 }
 
 type TemplateData struct {
-	Pkg      string
-	Services []Service
+	Pkg           string
+	Services      []Service
+	IsSamePackage bool
 }
 
-func createTemplateData(file *descriptor.FileDescriptorProto) TemplateData {
+type Params struct {
+	IsAuthPackage bool
+}
+
+func parseParams(param string) Params {
+	var p = Params{}
+	parts := strings.Split(param, ",")
+	for _, part := range parts {
+		switch part {
+		case "auth_package":
+			p.IsAuthPackage = true
+		}
+	}
+	return p
+}
+
+func createTemplateData(params Params, file *descriptor.FileDescriptorProto) TemplateData {
 	var svcs []Service
 	for _, svc := range file.GetService() {
 		var mds []Method
@@ -93,11 +127,13 @@ func createTemplateData(file *descriptor.FileDescriptorProto) TemplateData {
 	return TemplateData{
 		*file.Package,
 		svcs,
+		params.IsAuthPackage,
 	}
 }
 
 func main() {
 	flag.Parse()
+
 	gen := generator.New()
 
 	data, err := ioutil.ReadAll(os.Stdin)
@@ -114,10 +150,11 @@ func main() {
 	}
 
 	var files []*plugin.CodeGeneratorResponse_File
+	params := parseParams(gen.Request.GetParameter())
 	for _, file := range gen.Request.GetProtoFile() {
 		if len(file.GetService()) > 0 {
 			code := bytes.NewBuffer(nil)
-			data := createTemplateData(file)
+			data := createTemplateData(params, file)
 			if err := authTemplate.Execute(code, data); err != nil {
 				glog.Fatal("unable to generate method")
 			}

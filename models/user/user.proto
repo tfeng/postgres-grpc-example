@@ -7,39 +7,26 @@ import "github.com/tfeng/postgres-grpc-example/auth/auth.proto";
 import "google/api/annotations.proto";
 
 message User {
-    int64 id = 1;
-    string name = 2;
+    string id = 1;
     string hashedPassword = 3;
-    string role = 4;
 }
 
 message CreateRequest {
-    string name = 1;
+    string username = 1 [(validator.field) = {length_gt: 2}];
     string password = 2 [(validator.field) = {length_gt: 6}];
-    string role = 3;
-}
-
-message CreateResponse {
-    int64 id = 1;
 }
 
 message GetRequest {
 }
 
-message LoginRequest {
-    int64 id = 1 [(validator.field) = {int_gt: 0}];
-    string password = 2;
-}
-
-message LoginResponse {
-    string token = 1;
-}
-
 service UserService {
-    rpc Create(CreateRequest) returns (CreateResponse) {
+    rpc Create(CreateRequest) returns (User) {
         option (google.api.http) = {
             post: "/v1/users/create"
             body: "*"
+        };
+        option (auth.checker) = {
+            scope: user_creation
         };
     }
 
@@ -49,13 +36,6 @@ service UserService {
         };
         option (auth.checker) = {
             authenticated: true
-        };
-    }
-
-    rpc Login(LoginRequest) returns (LoginResponse) {
-        option (google.api.http) = {
-            post: "/v1/users/login"
-            body: "*"
         };
     }
 };

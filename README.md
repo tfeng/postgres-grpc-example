@@ -2,6 +2,23 @@
 
 ## Install
 
+Dependencies are managed with [Glide](https://github.com/Masterminds/glide). Therefore, make sure it is installed and run this to pull the dependencies.
+
+```$bash
+$ glide install
+```
+
+In addition, the following commands make sure global dependencies are installed.
+
+```bash
+$ go get -u github.com/golang/protobuf/protoc-gen-go
+$ go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+$ go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+$ go get -u github.com/mwitkow/go-proto-validators/protoc-gen-govalidators
+```
+
+Build the project with [GNU Make](https://www.gnu.org/software/make/).
+
 ```$bash
 $ make
 ```
@@ -21,36 +38,54 @@ To connect to the database, the program uses [go-pg](https://github.com/go-pg/pg
 
 In one terminal, run this to start the [GRPC](https://grpc.io/) server. It listens to http://localhost:9090 through GRPC
 protocol, and it also exposes a Rest API at http://localhost:8080.
+
 ```$bash
 $ pg_server
 ```
 
 ## Make Rest requests
 
-### Add a user
+### Get client access token
+
+The following command obtains an [OAuth2 token](https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/).
+This token authorizes a client with id "client".
 
 ```$bash
-$ curl -X POST -H 'Content-Type: application/json' -d '{"name": "Thomas", "password": "password", "role": "admin"}' localhost:8080/v1/users/create
+$ curl -X POST -H 'Content-Type: application/json' -d '{"client_id": "client", "client_secret": "password", "grant_type": "client_credentials"}' 'localhost:8080/oauth/tokens'
 ```
 
-### Login
+One can save the access token into the `CLIENT_TOKEN` environment variable.
 
 ```$bash
-$ TOKEN=$(curl -X POST -H 'Content-Type: application/json' -d '{"id": 1, "password": "password"}' localhost:8080/v1/users/login | jq -r '.token')
+$ CLIENT_TOKEN=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"client_id": "client", "client_secret": "password", "grant_type": "client_credentials"}' 'localhost:8080/oauth/tokens' | jq -r '.access_token')
 ```
 
-The returned JSON contains only a [JWT](https://jwt.io/) token. It has information of the logged in user, encrypted by a
-random RSA key with the [crypto](https://github.com/golang/crypto) package.
+### Create a user
+
+The following command uses the client OAuth2 token to create a user.
+
+```$bash
+$ curl -X POST -H 'Content-Type: application/json' -H "authorization: bearer $CLIENT_TOKEN" -d '{"username": "tfeng", "password": "password"}' localhost:8080/v1/users/create
+```
+
+### Authenticate
+
+The following command uses the client OAuth2 token and the username and password to obtain another OAuth2 token that
+authorizes operations on a specific user.
+
+```$bash
+$ USER_TOKEN=$(curl -s -X POST -H "Authorization: Bearer $CLIENT_TOKEN" -H 'Content-Type: application/json' -d '{"username": "tfeng", "password": "password", "grant_type": "password"}' 'localhost:8080/oauth/tokens' | jq -r '.access_token')
+```
+
+The returned JSON is an [OAuth2 token](https://www.oauth.com/oauth2-servers/access-tokens/access-token-response/) token.
 
 ### Get the current user
 
-```$bash
-$ curl -H 'Content-Type: application/json' -H "authorization: bearer $TOKEN" localhost:8080/v1/users/get
-```
+The following command fetches the profile information of the user.
 
-The token obtained in the previous step is passed to the server with the HTTP "authorization" header. Because the token
-already has all the information needed for the authorization, the server need not read from the database for
-authorization.
+```$bash
+$ curl -H 'Content-Type: application/json' -H "authorization: bearer $USER_TOKEN" localhost:8080/v1/users/get
+```
 
 ## Make GRPC requests
 

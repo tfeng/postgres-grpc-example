@@ -1,7 +1,5 @@
 package: github.com/tfeng/postgres-grpc-example
 import:
-- package: github.com/dgrijalva/jwt-go
-  version: ^3.0.0
 - package: github.com/go-pg/pg
   version: ^6.5.1
 - package: github.com/golang/glog

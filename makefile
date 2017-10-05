@@ -1,4 +1,4 @@
-PROTO_OBJECTS = auth/auth.pb.go auth/auth.rest.pb.go models/user/user.auth.pb.go models/user/user.pb.go models/user/user.rest.pb.go models/user/user.validator.pb.go
+PROTO_OBJECTS = auth/auth.auth.pb.go auth/auth.pb.go auth/auth.rest.pb.go models/user/user.auth.pb.go models/user/user.pb.go models/user/user.rest.pb.go models/user/user.validator.pb.go
 PROTOC_INCLUDES = -Ivendor -Ivendor/github.com/golang/protobuf -Ivendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis -I$(GOPATH)/src
 
 all: install
@@ -9,6 +9,9 @@ install: \
 	$(PROTO_OBJECTS) \
 	$(GOPATH)/bin/pg_client \
 	$(GOPATH)/bin/pg_server
+
+auth/auth.auth.pb.go: auth/auth.proto $(GOPATH)/bin/protoc-gen-goauth
+	protoc $(PROTOC_INCLUDES) --proto_path=. --goauth_out=auth_package:. $<
 
 %.auth.pb.go: %.proto $(GOPATH)/bin/protoc-gen-goauth
 	protoc $(PROTOC_INCLUDES) --proto_path=. --goauth_out=. $<
@@ -22,7 +25,7 @@ install: \
 %.validator.pb.go: %.proto
 	protoc $(PROTOC_INCLUDES) --proto_path=. --govalidators_out=. $<
 
-$(GOPATH)/bin/protoc-gen-goauth: auth/protoc-gen-goauth/*.go auth/auth.pb.go
+$(GOPATH)/bin/protoc-gen-goauth: auth/protoc-gen-goauth/*.go auth/auth.pb.go auth/auth.rest.pb.go
 	go install github.com/tfeng/postgres-grpc-example/auth/protoc-gen-goauth
 
 $(GOPATH)/bin/protoc-gen-gorest: rest/protoc-gen-gorest/*.go

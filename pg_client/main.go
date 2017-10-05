@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/tfeng/postgres-grpc-example/auth"
 	"github.com/tfeng/postgres-grpc-example/models/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -10,32 +11,35 @@ import (
 )
 
 const (
-	address  = "localhost:9090"
-	name     = "Thomas"
-	password = "password"
-	role     = "admin"
+	address      = "localhost:9090"
+	clientId     = "client"
+	clientSecret = "password"
+	username     = "amy"
+	password     = "password"
 )
 
 var (
-	client = connect()
+	authClient, userClient = connect()
 )
 
-func connect() user.UserServiceClient {
-	if conn, err := grpc.Dial("localhost:9090", grpc.WithInsecure()); err != nil {
+func connect() (auth.AuthServiceClient, user.UserServiceClient) {
+	if conn, err := grpc.Dial(address, grpc.WithInsecure()); err != nil {
 		panic(err)
 	} else {
-		return user.NewUserServiceClient(conn)
+		return auth.NewAuthServiceClient(conn), user.NewUserServiceClient(conn)
 	}
 }
 
-func create() int64 {
-	request := user.CreateRequest{Name: name, Password: password, Role: role}
+func create(clientToken string) *user.User {
+	md := metadata.Pairs("authorization", "bearer "+clientToken)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	request := user.CreateRequest{Username: username, Password: password}
 	log.Println("create request", encode(request))
-	if response, err := client.Create(context.Background(), &request); err != nil {
+	if user, err := userClient.Create(ctx, &request); err != nil {
 		panic(err)
 	} else {
-		log.Println("create response", encode(response))
-		return response.Id
+		log.Println("create response", encode(user))
+		return user
 	}
 }
 
@@ -47,32 +51,46 @@ func encode(obj interface{}) string {
 	}
 }
 
-func get(token string) *user.User {
-	md := metadata.Pairs("authorization", "bearer "+token)
+func get(userToken string) *user.User {
+	md := metadata.Pairs("authorization", "bearer "+userToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	request := user.GetRequest{}
 	log.Println("get request", encode(request))
-	if response, err := client.Get(ctx, &request); err != nil {
+	if user, err := userClient.Get(ctx, &request); err != nil {
 		panic(err)
 	} else {
-		log.Println("get response", encode(response))
-		return response
+		log.Println("get response", encode(user))
+		return user
 	}
 }
 
-func login(id int64) string {
-	request := user.LoginRequest{Id: id, Password: password}
-	log.Println("login request", encode(request))
-	if response, err := client.Login(context.Background(), &request); err != nil {
+func authorizeClient() string {
+	request := auth.CreateTokenRequest{GrantType: "client_credentials", ClientId: clientId, ClientSecret: clientSecret}
+	log.Println("authorize client request", encode(request))
+	if response, err := authClient.CreateToken(context.Background(), &request); err != nil {
 		panic(err)
 	} else {
-		log.Println("login response", encode(response))
-		return response.Token
+		log.Println("authorize client response", encode(response))
+		return response.AccessToken
+	}
+}
+
+func authorizeUser(clientToken string) string {
+	md := metadata.Pairs("authorization", "bearer "+clientToken)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	request := auth.CreateTokenRequest{GrantType: "password", Username: username, Password: password}
+	log.Println("authorize user request", encode(request))
+	if response, err := authClient.CreateToken(ctx, &request); err != nil {
+		panic(err)
+	} else {
+		log.Println("authorize user response", encode(response))
+		return response.AccessToken
 	}
 }
 
 func main() {
-	id := create()
-	token := login(id)
-	get(token)
+	clientToken := authorizeClient()
+	create(clientToken)
+	userToken := authorizeUser(clientToken)
+	get(userToken)
 }
